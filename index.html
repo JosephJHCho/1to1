@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>영어 단어 퀴즈</title>
+    <link rel="stylesheet" href="./style.css"> </head>
+<body>
+
+    <div class="quiz-container">
+        <h2>영단어 맞추기 💡</h2>
+        <p>아래 뜻에 해당하는 영어 단어를 입력하세요.</p>
+        
+        <div id="word-display" class="word-card">
+            <p id="korean-meaning"></p>
+        </div>
+
+        <input type="text" id="english-input" placeholder="여기에 영어 단어를 입력하세요">
+        <button onclick="checkAnswer()">정답 확인</button>
+        
+        <p id="feedback-message" class="feedback"></p>
+
+        <button onclick="nextWord()" id="next-button" style="display:none;">다음 단어</button>
+    </div>
+
+    <script src="./script.js"></script> </body>
+</html>
