@@ -7,64 +7,104 @@
       body {
         font-family: "Noto Sans KR", sans-serif;
         background: #f6f6f6;
-        padding: 30px;
+        padding: 20px;
+        font-size: 1.1rem;
       }
       h1 {
-        margin-bottom: 20px;
+        font-size: 1.5rem;
+        margin-bottom: 15px;
+        text-align: center;
       }
-      .nav {
+      /* --- 카테고리 드롭다운 --- */
+      #category-select {
+        display: block;
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto 15px;
+        padding: 10px;
+        font-size: 1.1rem;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        background-color: white;
+      }
+
+      /* --- 1,2,3 번호 버튼 (크기 축소 버전) --- */
+      .subnav {
         display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-bottom: 20px;
+        justify-content: center;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 4px;
+        margin-bottom: 12px;
       }
-      .nav-btn {
-        padding: 6px 15px;
+      .subnav-btn {
+        min-width: 32px;
+        padding: 4px 0;
         background-color: #ddd;
         border: none;
         border-radius: 5px;
         cursor: pointer;
-        font-size: 1rem;
+        font-size: 0.9rem;
         transition: background 0.2s;
+        flex: 0 0 auto;
       }
-      .nav-btn.active,
-      .nav-btn:hover {
+      .subnav-btn.active,
+      .subnav-btn:hover {
         background-color: #0084ff;
         color: #fff;
       }
+
+      /* --- 구절 영역 --- */
       .verse-container {
         background: white;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        padding: 18px;
+        border-radius: 12px;
+        box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
         margin-bottom: 25px;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
       }
       .verse-label {
         font-weight: bold;
         margin-bottom: 10px;
         color: #333;
+        font-size: 1.2rem;
       }
       textarea {
         width: 100%;
-        height: 100px;
+        height: 120px;
         padding: 10px;
-        font-size: 1rem;
+        font-size: 1.1rem;
         margin-bottom: 10px;
         line-height: 1.4;
       }
       button {
-        padding: 10px 20px;
+        padding: 8px 16px;
         font-size: 1rem;
         background: #0084ff;
         color: white;
         border: none;
-        border-radius: 5px;
+        border-radius: 6px;
         cursor: pointer;
-        margin-right: 10px;
+        margin-right: 8px;
       }
       button:hover {
         background: #006edc;
       }
+
+      .result-status {
+        display: inline-block;
+        font-weight: bold;
+        font-size: 1rem;
+      }
+      .result-status.correct {
+        color: green;
+      }
+      .result-status.wrong {
+        color: red;
+      }
+
       .result {
         margin-top: 10px;
         white-space: pre-wrap;
@@ -75,21 +115,32 @@
       }
       .original-text {
         margin-top: 8px;
-        font-size: 0.95rem;
+        font-size: 1rem;
         color: #222;
         border-top: 1px solid #ddd;
         padding-top: 8px;
         font-weight: bold;
         white-space: pre-wrap;
       }
-      .button-group {
-        margin-bottom: 10px;
+
+      @media (max-width: 600px) {
+        body {
+          font-size: 1rem;
+          padding: 15px;
+        }
+        textarea {
+          height: 100px;
+        }
       }
     </style>
   </head>
   <body>
-    <div id="nav" class="nav"></div>
+    <select id="category-select">
+      <option value="">카테고리를 선택하세요</option>
+    </select>
+    <div id="subnav" class="subnav"></div>
     <div id="practice-area"></div>
+
     <script>
       const verses = [
         { ref: "갈2:20", text: "내가 그리스도와 함께 십자가에 못 박혔나니 그런즉 이제는 내가 사는 것이 아니요 오직 내 안에 그리스도께서 사시는 것이라 이제 내가 육체 가운데 사는 것은 나를 사랑하사 나를 위하여 자기 자신을 버리신 하나님의 아들을 믿는 믿음 안에서 사는 것이라", cat: "만남 | 중심 되신 그리스도" },
@@ -122,59 +173,85 @@
         { ref: "벧전2:9", text: "그러나 너희는 택하신 족속이요 왕 같은 제사장들이요 거룩한 나라요 그의 소유가 된 백성이니 이는 너희를 어두운 데서 불러 내어 그의 기이한 빛에 들어가게 하신 이의 아름다운 덕을 선포하게 하려 하심이라", cat: "성장: 열 번째 만남 | 사역하는 삶" },
         { ref: "고전3:9", text: "우리는 하나님의 동역자들이요 너희는 하나님의 밭이요 하나님의 집이니라", cat: "성장: 열 번째 만남 | 사역하는 삶" },
       ];
+
       const categories = [...new Set(verses.map((v) => v.cat))];
-      let currentCategory = categories;
-      function renderNav() {
-        const nav = document.getElementById("nav");
-        nav.innerHTML = "";
+      let currentCategory = "";
+      let currentVerseIndex = 0;
+
+      function initCategorySelect() {
+        const select = document.getElementById("category-select");
         categories.forEach((cat) => {
-          const btn = document.createElement("button");
-          btn.textContent = cat;
-          btn.className = "nav-btn" + (cat === currentCategory ? " active" : "");
-          btn.onclick = () => {
-            currentCategory = cat;
-            renderNav();
-            renderVerses();
-          };
-          nav.appendChild(btn);
+          const opt = document.createElement("option");
+          opt.value = cat;
+          opt.textContent = cat;
+          select.appendChild(opt);
+        });
+
+        select.addEventListener("change", (e) => {
+          currentCategory = e.target.value;
+          currentVerseIndex = 0;
+          renderSubNav();
+          renderVerse();
         });
       }
-      function renderVerses() {
+
+      function renderSubNav() {
+        const subnav = document.getElementById("subnav");
+        subnav.innerHTML = "";
+        if (!currentCategory) return;
+
+        const filtered = verses.filter((v) => v.cat === currentCategory);
+        filtered.forEach((v, idx) => {
+          const btn = document.createElement("button");
+          btn.textContent = idx + 1;
+          btn.className = "subnav-btn" + (idx === currentVerseIndex ? " active" : "");
+          btn.onclick = () => {
+            currentVerseIndex = idx;
+            renderSubNav();
+            renderVerse();
+          };
+          subnav.appendChild(btn);
+        });
+      }
+
+      function renderVerse() {
         const area = document.getElementById("practice-area");
         area.innerHTML = "";
-        verses
-          .filter((v) => v.cat === currentCategory)
-          .forEach((v) => {
-            const div = document.createElement("div");
-            div.className = "verse-container";
-            div.innerHTML = ` <div class="verse-label">${v.ref}</div> <textarea id="input-${v.ref}" placeholder="직접 입력해보세요..."></textarea>
-        <div class="button-group">
-        <button id="btn-${v.ref}">확인</button>
-        <button id="clean-${v.ref}">Clean</button>
-      </div>
-      <div id="result-${v.ref}" class="result"></div>
-      <div id="original-${v.ref}" class="original-text" style="display:none;"></div>
-    `;
-            area.appendChild(div);
 
-            const textarea = document.getElementById(`input-${v.ref}`);
-            const checkBtn = document.getElementById(`btn-${v.ref}`);
-            const cleanBtn = document.getElementById(`clean-${v.ref}`);
+        if (!currentCategory) return;
 
-            checkBtn.onclick = () => checkVerse(v.ref, v.text);
-            cleanBtn.onclick = () => cleanVerse(v.ref);
+        const filtered = verses.filter((v) => v.cat === currentCategory);
+        const verse = filtered[currentVerseIndex];
+        if (!verse) return;
 
-            textarea.addEventListener("keydown", (e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                const ref = e.target.id.replace("input-", "");
-                const verse = verses.find((x) => x.ref === ref);
-                if (verse) {
-                  checkVerse(ref, verse.text);
-                }
-              }
-            });
-          });
+        const div = document.createElement("div");
+        div.className = "verse-container";
+        div.innerHTML = `
+          <div class="verse-label">${verse.ref}</div>
+          <textarea id="input-${verse.ref}" placeholder="직접 입력해보세요..."></textarea>
+          <div class="button-group">
+            <button id="btn-${verse.ref}">확인</button>
+            <button id="clean-${verse.ref}">초기화</button>
+            <span id="status-${verse.ref}" class="result-status"></span>
+          </div>
+          <div id="result-${verse.ref}" class="result"></div>
+          <div id="original-${verse.ref}" class="original-text" style="display:none;"></div>
+        `;
+        area.appendChild(div);
+
+        const textarea = document.getElementById(`input-${verse.ref}`);
+        const checkBtn = document.getElementById(`btn-${verse.ref}`);
+        const cleanBtn = document.getElementById(`clean-${verse.ref}`);
+
+        checkBtn.onclick = () => checkVerse(verse.ref, verse.text);
+        cleanBtn.onclick = () => cleanVerse(verse.ref);
+
+        textarea.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            checkVerse(verse.ref, verse.text);
+          }
+        });
       }
 
       function checkVerse(ref, originalText) {
@@ -182,6 +259,7 @@
         const userInput = document.getElementById(`input-${ref}`).value.replace(/\s+/g, "");
         const resultDiv = document.getElementById(`result-${ref}`);
         const originalDiv = document.getElementById(`original-${ref}`);
+        const statusSpan = document.getElementById(`status-${ref}`);
 
         let result = "";
         const maxLen = Math.max(original.length, userInput.length);
@@ -196,21 +274,33 @@
 
         originalDiv.textContent = originalText;
         originalDiv.style.display = "block";
+
+        if (userInput === original && userInput.length > 0) {
+          statusSpan.textContent = "정답 ✅";
+          statusSpan.className = "result-status correct";
+        } else if (userInput.length > 0) {
+          statusSpan.textContent = "오답 ❌";
+          statusSpan.className = "result-status wrong";
+        } else {
+          statusSpan.textContent = "";
+          statusSpan.className = "result-status";
+        }
       }
 
       function cleanVerse(ref) {
         const textarea = document.getElementById(`input-${ref}`);
         const resultDiv = document.getElementById(`result-${ref}`);
         const originalDiv = document.getElementById(`original-${ref}`);
+        const statusSpan = document.getElementById(`status-${ref}`);
 
         textarea.value = "";
         resultDiv.innerHTML = "";
         originalDiv.textContent = "";
         originalDiv.style.display = "none";
+        statusSpan.textContent = "";
       }
 
-      renderNav();
-      renderVerses();
+      initCategorySelect();
     </script>
   </body>
 </html>
