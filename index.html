@@ -18,17 +18,76 @@
         margin-bottom: 10px;
       }
 
-      /* --- 카테고리 --- */
+      /* --- 카테고리 휠 피커 --- */
       #category-select {
         display: block;
         width: 100%;
         max-width: 600px;
         margin: 0 auto 5px;
-        padding: 6px;
-        font-size: 1rem;
+        height: 90px;
+        overflow: hidden;
         border-radius: 6px;
         border: 1px solid #ccc;
         background-color: white;
+        position: relative;
+      }
+
+      #category-select::before,
+      #category-select::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 30px;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      #category-select::before {
+        top: 0;
+        background: linear-gradient(to bottom, white, rgba(255, 255, 255, 0));
+      }
+
+      #category-select::after {
+        bottom: 0;
+        background: linear-gradient(to top, white, rgba(255, 255, 255, 0));
+      }
+
+      .category-wheel {
+        height: 100%;
+        overflow-y: auto;
+        scroll-snap-type: y mandatory;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+
+      .category-wheel::-webkit-scrollbar {
+        display: none;
+      }
+
+      .category-item {
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 10px;
+        scroll-snap-align: center;
+        scroll-snap-stop: always;
+        font-size: 1rem;
+        color: #999;
+        transition: all 0.2s ease;
+        cursor: pointer;
+      }
+
+      .category-item.selected {
+        color: #000;
+        font-weight: bold;
+        font-size: 1.1rem;
+      }
+
+      .category-item.empty {
+        color: #999;
+        font-style: italic;
       }
 
       /* --- 1,2,3 번호 버튼 --- */
@@ -159,8 +218,14 @@
           height: 160px;
         }
         #category-select {
+          height: 75px;
+        }
+        .category-item {
           font-size: 0.95rem;
-          padding: 4px;
+          height: 25px;
+        }
+        .category-item.selected {
+          font-size: 1rem;
         }
         .subnav-btn {
           font-size: 0.85rem;
@@ -171,9 +236,9 @@
     </style>
   </head>
   <body>
-    <select id="category-select">
-      <option value="">카테고리를 선택하세요</option>
-    </select>
+    <div id="category-select">
+      <div class="category-wheel" id="category-wheel"></div>
+    </div>
     <div id="subnav" class="subnav"></div>
     <div id="practice-area"></div>
 
@@ -215,19 +280,139 @@
       let currentVerseIndex = 0;
 
       function initCategorySelect() {
-        const select = document.getElementById("category-select");
+        const wheel = document.getElementById("category-wheel");
+        
+        // 빈 옵션 추가
+        const emptyItem = document.createElement("div");
+        emptyItem.className = "category-item empty";
+        emptyItem.textContent = "-";
+        emptyItem.dataset.value = "";
+        wheel.appendChild(emptyItem);
+
+        // 카테고리 항목 추가
         categories.forEach((cat) => {
-          const opt = document.createElement("option");
-          opt.value = cat;
-          opt.textContent = cat;
-          select.appendChild(opt);
+          const item = document.createElement("div");
+          item.className = "category-item";
+          item.textContent = cat;
+          item.dataset.value = cat;
+          wheel.appendChild(item);
         });
-        select.addEventListener("change", (e) => {
-          currentCategory = e.target.value;
-          currentVerseIndex = 0;
-          renderSubNav();
-          renderVerse();
+
+        // 마지막에 빈 옵션 추가
+        const emptyItemEnd = document.createElement("div");
+        emptyItemEnd.className = "category-item empty";
+        emptyItemEnd.textContent = "-";
+        emptyItemEnd.dataset.value = "";
+        wheel.appendChild(emptyItemEnd);
+
+        // 휠 이벤트 처리
+        let isScrolling = false;
+        wheel.addEventListener("wheel", (e) => {
+          e.preventDefault();
+          if (isScrolling) return;
+          
+          const delta = e.deltaY > 0 ? 30 : -30;
+          wheel.scrollTop += delta;
+          
+          // 스크롤 후 선택 업데이트
+          setTimeout(() => {
+            updateSelectedCategory();
+          }, 100);
         });
+
+        // 스크롤 이벤트로 선택 업데이트
+        wheel.addEventListener("scroll", () => {
+          if (!isScrolling) {
+            updateSelectedCategory();
+          }
+        });
+
+        // 터치 이벤트 (모바일)
+        let touchStartY = 0;
+        wheel.addEventListener("touchstart", (e) => {
+          touchStartY = e.touches[0].clientY;
+        });
+
+        wheel.addEventListener("touchmove", (e) => {
+          e.preventDefault();
+          const touchY = e.touches[0].clientY;
+          const delta = touchStartY - touchY;
+          wheel.scrollTop += delta;
+          touchStartY = touchY;
+        });
+
+        wheel.addEventListener("touchend", () => {
+          setTimeout(() => {
+            updateSelectedCategory();
+          }, 100);
+        });
+
+        // 클릭 이벤트
+        wheel.addEventListener("click", (e) => {
+          if (e.target.classList.contains("category-item")) {
+            const item = e.target;
+            const itemTop = item.offsetTop;
+            const wheelTop = wheel.scrollTop;
+            const itemCenter = itemTop - wheelTop + 15; // 30px / 2
+            const wheelCenter = wheel.clientHeight / 2;
+            const scrollTo = itemTop - wheelCenter + 15;
+            
+            isScrolling = true;
+            wheel.scrollTo({
+              top: scrollTo,
+              behavior: "smooth"
+            });
+            
+            setTimeout(() => {
+              updateSelectedCategory();
+              isScrolling = false;
+            }, 300);
+          }
+        });
+
+        function updateSelectedCategory() {
+          const items = wheel.querySelectorAll(".category-item");
+          const wheelCenter = wheel.clientHeight / 2;
+          const wheelScrollTop = wheel.scrollTop;
+          
+          let selectedItem = null;
+          let minDistance = Infinity;
+
+          items.forEach((item) => {
+            const itemTop = item.offsetTop;
+            const itemCenter = itemTop - wheelScrollTop + 15; // 30px / 2
+            const distance = Math.abs(itemCenter - wheelCenter);
+
+            if (distance < minDistance) {
+              minDistance = distance;
+              selectedItem = item;
+            }
+          });
+
+          // 선택 상태 업데이트
+          items.forEach((item) => {
+            item.classList.remove("selected");
+          });
+
+          if (selectedItem) {
+            selectedItem.classList.add("selected");
+            const newCategory = selectedItem.dataset.value || "";
+            if (newCategory !== currentCategory) {
+              currentCategory = newCategory;
+              currentVerseIndex = 0;
+              renderSubNav();
+              renderVerse();
+            }
+          }
+        }
+
+        // 초기 스크롤 위치 설정 (첫 번째 항목을 가운데로)
+        setTimeout(() => {
+          const firstItem = wheel.querySelector(".category-item");
+          if (firstItem) {
+            wheel.scrollTop = firstItem.offsetTop - (wheel.clientHeight / 2) + 15;
+          }
+        }, 50);
       }
 
       function renderSubNav() {
